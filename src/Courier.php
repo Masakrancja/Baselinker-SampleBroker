@@ -8,6 +8,9 @@ class Courier
 {
 
     private const ALLOWED_LABEL_FORMATS = ['PDF', 'PNG', 'ZPL'];
+    private string $labelFormat;
+    private string $service;
+    private array $serviceInfo;
 
 
     public function __construct(private string $baseUrl)
@@ -31,10 +34,15 @@ class Courier
     {
         try {
             $apiKey = $this->validateApiKey($params['api_key'] ?? null);
-            $labelFormat = $this->validateLabelFormat($params['label_format'] ?? null);
-            $service = $this->validateService($params['service'] ?? null, $apiKey);
+            $this->labelFormat = $this->validateLabelFormat($params['label_format'] ?? null);
+            $this->service = $this->validateService($params['service'] ?? null, $apiKey);
+            $this->serviceInfo = $this->getServiceInfo($apiKey);
+            $consignor = $this->validateConsignorAddress(
+                array_filter($order, fn($key) => str_starts_with($key, 'sender_'), ARRAY_FILTER_USE_KEY)
+            );
 
-            
+            print_r($consignor);
+            exit();
 
         } catch (\InvalidArgumentException $e) {
             return [
@@ -77,15 +85,7 @@ class Courier
     private function validateService(?string $service, string $apiKey): string
     {
         $response = $this->getServices($apiKey);
-        if ($response['http_code'] !== 200) {
-            $this->throwError($response['response'], $response['http_code']);
-        }
-
-        // print_r($response); // For debugging purposes
         $allowedServices = $response['response']['Services']['AllowedServices'] ?? [];
-
-        print_r($allowedServices); // For debugging purposes    
-
         if (!in_array(strtoupper($service), $allowedServices, true)) {
             throw new \InvalidArgumentException(
                 'Invalid service. Allowed services: ' . implode(', ', $allowedServices),
@@ -95,6 +95,69 @@ class Courier
         return $service;
     }
 
+    private function validateConsignorAddress(array $consignor): array
+    {
+        $fields = [
+            'FullName' => ['name' => 'sender_fullname', 'required' => false, 'default_length' => 50],
+            'Company' => ['name' => 'sender_company', 'required' => false, 'default_length' => 60],
+            'AddressLine1' => ['name' => 'sender_address', 'required' => true, 'default_length' => 50],
+            'AddressLine2' => ['name' => 'sender_address2', 'required' => false, 'default_length' => 50],
+            'AddressLine3' => ['name' => 'sender_address3', 'required' => false, 'default_length' => 50],
+            'City' => ['name' => 'sender_city', 'required' => true, 'default_length' => 50],
+            'State' => ['name' => 'sender_state', 'required' => false, 'default_length' => 50],
+            'Zip' => ['name' => 'sender_postalcode', 'required' => true, 'default_length' => 20],
+            'Country' => ['name' => 'sender_country', 'required' => false, 'default_length' => 2],
+            'Phone' => ['name' => 'sender_phone', 'required' => false, 'default_length' => 15],
+            'Email' => ['name' => 'sender_email', 'required' => false, 'default_length' => -1],
+        ];
+        return $this->validateAddress($fields, $consignor);
+    }
+
+    private function validateConsigneeAddress(array $consignee): array
+    {
+        $fields = [
+            'Name' => ['name' => 'delivery_fullname', 'required' => true, 'default_length' => 50],
+            'Company' => ['name' => 'delivery_company', 'required' => false, 'default_length' => 60],
+            'AddressLine1' => ['name' => 'delivery_address', 'required' => true, 'default_length' => 50],
+            'AddressLine2' => ['name' => 'delivery_address2', 'required' => false, 'default_length' => 50],
+            'AddressLine3' => ['name' => 'delivery_address3', 'required' => false, 'default_length' => 50],
+            'City' => ['name' => 'delivery_city', 'required' => true, 'default_length' => 50],
+            'State' => ['name' => 'delivery_state', 'required' => false, 'default_length' => 50],
+            'Zip' => ['name' => 'delivery_postalcode', 'required' => true, 'default_length' => 20],
+            'Country' => ['name' => 'delivery_country', 'required' => true, 'default_length' => 2],
+            'Phone' => ['name' => 'delivery_phone', 'required' => false, 'default_length' => 15],
+            'Email' => ['name' => 'delivery_email', 'required' => false, 'default_length' => -1],
+        ];
+        return $this->validateAddress($fields, $consignee);
+    }
+
+    private function validateAddress(array $fields, array $address): array
+    {
+        $result = [];
+        $serviceLimits = $this->serviceInfo['response']['ServiceInfo']['fieldLimits'] ?? [];
+        foreach ($fields as $key => $field) {
+            if ($field['required'] && empty($address[$field['name']])) {
+                throw new \InvalidArgumentException("Field '{$field['name']}' cannot be empty.", 400);
+            }
+            if (isset($address[$field['name']])) {
+                $maxLength = $serviceLimits[$key] ?? $field['default_length'];
+                if (!is_numeric($maxLength)) {
+                    $maxLength = $field['default_length'];
+                }
+                if (mb_strlen(trim($address[$field['name']]), 'UTF-8') > $maxLength && $maxLength > 0) {
+                    throw new \InvalidArgumentException(
+                        "Field '{$field['name']}' exceeds maximum length of {$maxLength} characters.",
+                        400
+                    );
+                }
+            }
+            if (strlen($address[$field['name']]) > 0) {
+                $result[$key] = $address[$field['name']];
+            }
+        }
+        return $result;
+    }
+
     private function getServices(string $apiKey): array
     {
         $command = 'GetServices';
@@ -102,7 +165,26 @@ class Courier
             'Apikey' => $apiKey,
             'Command' => $command,
         ]);
-        return $this->runCommand($body);
+        $response = $this->runCommand($body);
+        if ($response['http_code'] !== 200) {
+            $this->throwError($response['response'], $response['http_code']);
+        }
+        return $response;
+    }
+
+    private function getServiceInfo(string $apiKey): array
+    {
+        $command = 'GetServiceInfo';
+        $body = json_encode([
+            'Apikey' => $apiKey,
+            'Command' => $command,
+            'Service' => $this->service,
+        ]);
+        $response = $this->runCommand($body);
+        if ($response['http_code'] !== 200) {
+            $this->throwError($response['response'], $response['http_code']);
+        }
+        return $response;
     }
 
 
