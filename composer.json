@@ -1,0 +1,19 @@
+{
+    "name": "baselinker/samplebroker",
+    "description": "Sample Broker for Baselinker API",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "Baselinker\\Samplebroker\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Piotr Pietrzak",
+            "email": "piotrpietrzak145@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1"
+    }
+}
