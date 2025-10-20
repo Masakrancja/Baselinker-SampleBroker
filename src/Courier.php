@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Baselinker\Samplebroker;
 
 use Baselinker\Samplebroker\Api;
+use Baselinker\Samplebroker\Validate;
 
 class Courier
 {
-
-    private const DEFAULT_WEIGHT_UNIT = 'kg';
-
     public function __construct(
         private Api $api, 
         private Validate $validate
@@ -40,7 +38,7 @@ class Courier
                     'shipper_reference', 'order_reference', 'order_date', 
                     'display_id', 'invoice_number', 'weight', 'weight_unit', 
                     'length', 'width', 'height', 'dim_unit', 'value', 
-                    'shipping_value', 'currency', 'customs_duty', 'description', 
+                    'shipment_value', 'currency', 'customs_duty', 'description', 
                     'declaration_type', 'dangerous_goods', 'export_carriername', 
                     'export_awb', 'ni_vat', 'eu_eori', 'ioss', 'label_format'
                 ]), ARRAY_FILTER_USE_KEY),
@@ -63,14 +61,17 @@ class Courier
             // Validate products data
             $products = $this->validate->products(
                 $order['products'] ?? [], 
-                $shipment['weight_unit'] ?? self::DEFAULT_WEIGHT_UNIT,
+                $consignor['Country'],
+                $consignee['Country'],
                 $serviceInfo
             );
 
-            return [];
-            
+            $shipment['Service'] = $service;
+            $shipment['ConsignorAddress'] = $consignor;
+            $shipment['ConsigneeAddress'] = $consignee;
+            $shipment['Products'] = $products;
 
-
+            return  $this->api->createShipment($apiKey, $shipment);
         } catch (\InvalidArgumentException | \RuntimeException $e) {
             return [
                 'status' => 'ERROR',
@@ -89,10 +90,53 @@ class Courier
         return [];
     }
 
-    public function packagePDF(): string
+    public function packagePDF(
+        string $apiKey, 
+        ?string $trackingNumber = null,
+        ?string $shipperReference = null,
+        ?string $labelFormat = null
+    )
     {
-        // Logic to get shipping label
-        return '';
+        $body = [];
+        if ($trackingNumber !== null) {
+            $body['TrackingNumber'] = $trackingNumber;
+        } elseif ($shipperReference !== null) {
+            $body['ShipperReference'] = $shipperReference;
+        } else {
+            throw new \InvalidArgumentException(
+                'Either trackingNumber or shipperReference must be provided.',
+                400
+            );
+        }
+        if ($labelFormat !== null) {
+            $body['LabelFormat'] = $labelFormat;
+        }
+
+        $labelResponse = $this->api->getShipmentLabel($apiKey, $body);
+
+        $label = $labelResponse['response']['Shipment']['LabelImage'] ?? null;
+
+        if ($label === null) {
+            throw new \RuntimeException(
+                'Label not found in the response.',
+                500
+            );
+        }  
+        
+        $labelDecoded = base64_decode($label);
+        if ($labelDecoded === false) {
+            throw new \RuntimeException(
+                'Failed to decode the label content.',
+                500
+            );
+        }
+
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="moj_plik.pdf"');
+        header('Content-Length: ' . strlen($labelDecoded));
+
+        echo $labelDecoded;
+        exit;
     }
 
 

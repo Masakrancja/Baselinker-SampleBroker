@@ -19,9 +19,7 @@ class Api
             'Command' => $command,
         ]);
         $response = $this->runCommand($body);
-        if ($response['http_code'] !== 200) {
-            $this->throwError($response['response'], $response['http_code']);
-        }
+
         return $response;
     }
 
@@ -34,9 +32,36 @@ class Api
             'Service' => $service,
         ]);
         $response = $this->runCommand($body);
-        if ($response['http_code'] !== 200) {
-            $this->throwError($response['response'], $response['http_code']);
-        }
+
+        return $response;
+    }
+
+    public function createShipment(string $apiKey, array $body): array
+    {
+        $command = 'OrderShipment';
+        $body = json_encode([
+            'Apikey' => $apiKey,
+            'Command' => $command,
+            'Shipment' => $body,
+        ]);
+        $response = $this->runCommand($body);
+
+        return $response['response']['Shipment'];
+    }
+
+    public function getShipmentLabel(
+        string $apiKey, 
+        array $body
+    ): array
+    {
+        $command = 'GetShipmentLabel';
+        $body = json_encode([
+            'Apikey' => $apiKey,
+            'Command' => $command,
+            'Shipment' => $body,
+        ]);
+        $response = $this->runCommand($body);
+
         return $response;
     }
 
@@ -86,20 +111,6 @@ class Api
         }
 
         return $ch;
-    }
-
-    private function throwError(array $response, int $httpCode): void
-    {
-        if (isset($response['ErrorLevel']) && isset($response['Error'])) {
-            throw new \InvalidArgumentException(
-                $response['Error'],
-                $httpCode
-            );
-        }
-        throw new \InvalidArgumentException(
-            'Unknown error occurred.',
-            $httpCode
-        );
     }
 
 }

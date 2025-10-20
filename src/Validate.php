@@ -71,6 +71,10 @@ class Validate
         'Y', 'N'
     ];
 
+    private string $dimUnit;
+
+    private string $weightUnit;
+
     public function apiKey(string $apiKey): string
     {
         if (empty($apiKey) || !is_string($apiKey)) {
@@ -173,8 +177,8 @@ class Validate
                 'min' => 0.01,
                 'max' => self::MAX_VALUE
             ],
-            'ShippingValue' => [
-                'name' => 'shipping_value', 
+            'ShipmentValue' => [
+                'name' => 'shipment_value', 
                 'required' => false, 
                 'type' => 'number', 
                 'min' => 0.01,
@@ -248,7 +252,6 @@ class Validate
             ],
         ];
 
-
         $result = $this->validateShipment($fields, $shipment, $serviceInfo);
         $dim = (int)isset($result['Length']) + (int)isset($result['Width']) + (int)isset($result['Height']);
 
@@ -260,17 +263,17 @@ class Validate
             );
         }
 
-        $dimUnit = $result['DimUnit'] ?? self::DEFAULT_DIM_UNIT;
+        $dimUnit = $this->dimUnit ?? self::DEFAULT_DIM_UNIT;
 
         if ($dim === 3) {
-            $length = (float) $result['Length'];
-            $width = (float) $result['Width'];
-            $height = (float) $result['Height'];
+            $result['Length'] = (float) $result['Length'];
+            $result['Width'] = (float) $result['Width'];
+            $result['Height'] = (float) $result['Height'];
 
             if ($dimUnit === 'in') {
-                $length = round($length * self::INCH_TO_CM, 2);
-                $width = round($width * self::INCH_TO_CM, 2);
-                $height = round($height * self::INCH_TO_CM, 2);
+                $result['Length'] = round($result['Length'] * self::INCH_TO_CM, 2);
+                $result['Width'] = round($result['Width'] * self::INCH_TO_CM, 2);
+                $result['Height'] = round($result['Height'] * self::INCH_TO_CM, 2);
             }
 
             $msgCalculated = '';
@@ -279,9 +282,9 @@ class Validate
                 self::DEFAULT_DIM_UNIT . ")";
             }
 
-            if ($length < $fields['Length']['min'] || $length > $fields['Length']['max']) {
+            if ($result['Length'] < $fields['Length']['min'] || $result['Length'] > $fields['Length']['max']) {
                 throw new \InvalidArgumentException(
-                    "Shipment length '{$length} " . self::DEFAULT_DIM_UNIT . "' " .
+                    "Shipment length '{$result['Length']} " . self::DEFAULT_DIM_UNIT . "' " .
                     $msgCalculated . " must be between " .
                     "{$fields['Length']['min']} " . self::DEFAULT_DIM_UNIT . " and " .
                     "{$fields['Length']['max']} " . self::DEFAULT_DIM_UNIT . ".",
@@ -289,9 +292,9 @@ class Validate
                 );
             }
 
-            if ($width < $fields['Width']['min'] || $width > $fields['Width']['max']) {
+            if ($result['Width'] < $fields['Width']['min'] || $result['Width'] > $fields['Width']['max']) {
                 throw new \InvalidArgumentException(
-                    "Shipment width '{$width} " . self::DEFAULT_DIM_UNIT . "' " . 
+                    "Shipment width '{$result['Width']} " . self::DEFAULT_DIM_UNIT . "' " . 
                     $msgCalculated . " must be between " .
                     "{$fields['Width']['min']} " . self::DEFAULT_DIM_UNIT . " and " .
                     "{$fields['Width']['max']} " . self::DEFAULT_DIM_UNIT . ".",
@@ -299,9 +302,9 @@ class Validate
                 );
             }
 
-            if ($height < $fields['Height']['min'] || $height > $fields['Height']['max']) {
+            if ($result['Height'] < $fields['Height']['min'] || $result['Height'] > $fields['Height']['max']) {
                 throw new \InvalidArgumentException(
-                    "Shipment height '{$height} " . self::DEFAULT_DIM_UNIT . "' " . 
+                    "Shipment height '{$result['Height']} " . self::DEFAULT_DIM_UNIT . "' " . 
                     $msgCalculated . " must be between " .
                     "{$fields['Height']['min']} " . self::DEFAULT_DIM_UNIT . " and " .
                     "{$fields['Height']['max']} " . self::DEFAULT_DIM_UNIT . ".",
@@ -309,7 +312,7 @@ class Validate
                 );
             }
 
-            $dimensionSum = $length + 2 * ($width + $height);
+            $dimensionSum = $result['Length'] + 2 * ($result['Width'] + $result['Height']);
             if ($dimensionSum > self::MAX_SHIPMENT_DIMENSION) {
                 throw new \InvalidArgumentException(
                     "Sum of shipment dimensions [L + 2 * (W + H)] = '{$dimensionSum} " . 
@@ -320,27 +323,28 @@ class Validate
                 );
             }
         }
-        
-        $weightUnit = $result['WeightUnit'] ?? self::DEFAULT_WEIGHT_UNIT;
-        $weight = (float) $result['Weight'];
+
+        $result['Weight'] = (float) $result['Weight'];
+        $maxWeight = $serviceInfo['response']['ServiceInfo']['maxWeight'] ?? self::MAX_SHIPMENT_WEIGHT; //from service is only in kg unit
+
         $msgCalculated = '';
-        if ($weightUnit === 'lb') {
-            $weight = round($weight * self::LB_TO_KG, 2);
-            $msgCalculated = "(Weight converted from {$weightUnit} to " . 
+        if ($this->weightUnit === 'lb') {
+            $result['Weight'] = round($result['Weight'] * self::LB_TO_KG, 2);
+            $msgCalculated = "(Weight converted from {$this->weightUnit} to " . 
             self::DEFAULT_WEIGHT_UNIT . ")";
         }
-        if ($weight < $fields['Weight']['min'] || $weight > $fields['Weight']['max']) {
+
+        if ($result['Weight'] > $maxWeight || $result['Weight'] < $fields['Weight']['min']) {
             throw new \InvalidArgumentException(
-                "Shipment weight '{$weight} " . self::DEFAULT_WEIGHT_UNIT . "' " .
+                "Shipment weight '{$result['Weight']} " . self::DEFAULT_WEIGHT_UNIT . "' " .
                 $msgCalculated . " must be between " .
                 "{$fields['Weight']['min']} " . self::DEFAULT_WEIGHT_UNIT . " and " .
-                "{$fields['Weight']['max']} " . self::DEFAULT_WEIGHT_UNIT . ".",
+                "{$maxWeight} " . self::DEFAULT_WEIGHT_UNIT . ".",
                 400
             );
         }
 
         return $result;
-
     }
 
     public function consignorAddress(array $consignor, array $serviceInfo): array
@@ -349,56 +353,67 @@ class Validate
             'FullName' => [
                 'name' => 'sender_fullname', 
                 'required' => false, 
+                'type' => 'string',
                 'default_length' => 50
             ],
             'Company' => [
                 'name' => 'sender_company', 
                 'required' => false, 
+                'type' => 'string',
                 'default_length' => 60
             ],
             'AddressLine1' => [
                 'name' => 'sender_address', 
                 'required' => true, 
+                'type' => 'string',
                 'default_length' => 50
             ],
             'AddressLine2' => [
                 'name' => 'sender_address2', 
                 'required' => false, 
+                'type' => 'string',
                 'default_length' => 50
             ],
             'AddressLine3' => [
                 'name' => 'sender_address3', 
                 'required' => false, 
+                'type' => 'string',
                 'default_length' => 50
             ],
             'City' => [
                 'name' => 'sender_city', 
                 'required' => true, 
+                'type' => 'string',
                 'default_length' => 50
             ],
             'State' => [
                 'name' => 'sender_state', 
                 'required' => false, 
+                'type' => 'string',
                 'default_length' => 50
             ],
             'Zip' => [
                 'name' => 'sender_postalcode', 
                 'required' => true, 
+                'type' => 'string',
                 'default_length' => 20
             ],
             'Country' => [
                 'name' => 'sender_country', 
-                'required' => false, 
+                'required' => true, 
+                'type' => 'string',
                 'default_length' => 2
             ],
             'Phone' => [
                 'name' => 'sender_phone', 
-                'required' => false, 
+                'required' => false,
+                'type' => 'string', 
                 'default_length' => 15
             ],
             'Email' => [
                 'name' => 'sender_email', 
                 'required' => false, 
+                'type' => 'string',
                 'default_length' => 255
             ],
         ];
@@ -480,7 +495,8 @@ class Validate
 
     public function products(
         array $products, 
-        string $weightUnit,
+        $consignorCountry,
+        $consigneeCountry,
         array $serviceInfo,
     ): array
     {
@@ -490,6 +506,11 @@ class Validate
         $service = $serviceInfo['service'] ?? '';
         if (empty($products)) {
             throw new \InvalidArgumentException('Products array cannot be empty.', 400);
+        }
+
+        $requiredHSCode = false;
+        if ($consigneeCountry !== $consignorCountry) {
+            $requiredHSCode = true;
         }
 
         $fields = [
@@ -522,7 +543,7 @@ class Validate
             ],
             'HsCode' => [
                 'name' => 'hs_code', 
-                'required' => false, 
+                'required' => $requiredHSCode, 
                 'type' => 'string', 
                 'default_length' => 255
             ],
@@ -540,9 +561,18 @@ class Validate
         $valueOfProducts = 0.0;
         foreach ($products as $product) {
             $result[] = $this->validateProduct($fields, $product, $serviceInfo, $productIndex);
-            $amountOfProducts += (int) ($product['quantity']);
-            $weightOfProducts += (float) ($product['weight']) * (int) ($product['quantity']);
-            $valueOfProducts += ((float) ($product['value'] ?? 0.0)) * (int) ($product['quantity']);
+            $amountOfProducts += (int) ($result[$productIndex]['Quantity']);
+            if ($this->weightUnit === 'lb') {
+                $result[$productIndex]['Weight'] = (
+                    round((float) ($result[$productIndex]['Weight']) * self::LB_TO_KG, 2)
+                );
+            }
+            $weightOfProducts += (float) (
+                $result[$productIndex]['Weight']) * (int) ($result[$productIndex]['Quantity']
+            );
+            $valueOfProducts += ((float) (
+                $result[$productIndex]['Value'] ?? 0.0)) * (int) ($result[$productIndex]['Quantity']
+            );
             $productIndex++;
         }
 
@@ -561,35 +591,19 @@ class Validate
                 400
             );
         }
-
-        if (strtolower($weightUnit) === 'lb') {
-            $msgCalculated = '';
-            if ($weightUnit !== self::DEFAULT_WEIGHT_UNIT) {
-                $msgCalculated = "(Weight converted from {$weightUnit} to " . 
-                self::DEFAULT_WEIGHT_UNIT . ")";
-            }
-
-            $weightOfProducts = round($weightOfProducts * self::LB_TO_KG, 2);
-
-            if ($weightOfProducts > $maxWeight) {
-                throw new \InvalidArgumentException(
-                    "Total weight '{$weightOfProducts} " . self::DEFAULT_WEIGHT_UNIT . "'" . 
-                    $msgCalculated . " of products exceeds maximum allowed weight " .
-                    "{$maxWeight} " . self::DEFAULT_WEIGHT_UNIT . " for the " . $service . " service.",
-                    400
-                );
-            }           
-        } elseif (strtolower($weightUnit) === self::DEFAULT_WEIGHT_UNIT) {
-            if ($weightOfProducts > $maxWeight) {
-                throw new \InvalidArgumentException(
-                    "Total weight '{$weightOfProducts} " . self::DEFAULT_WEIGHT_UNIT . "' " .
-                    "of products exceeds maximum allowed weight ." . 
-                    "{$maxWeight} " . self::DEFAULT_WEIGHT_UNIT . " for the " . $service . " service.",
-                    400
-                );
-            }
+        $msgCalculated = '';
+        if (strtolower($this->weightUnit) === 'lb') {
+            $msgCalculated = "(Weight converted from {$this->weightUnit} to " . self::DEFAULT_WEIGHT_UNIT . ")";      
         }
 
+        if ($weightOfProducts > $maxWeight) {
+            throw new \InvalidArgumentException(
+                "Total weight '{$weightOfProducts} " . self::DEFAULT_WEIGHT_UNIT . "'" . 
+                $msgCalculated . " of products exceeds maximum allowed weight " .
+                "{$maxWeight} " . self::DEFAULT_WEIGHT_UNIT . " for the " . $service . " service.",
+                400
+            );
+        }  
         return $result;
     }
 
@@ -678,7 +692,10 @@ class Validate
         foreach ($fields as $key => $field) {
             $value = trim((string) ($product[$field['name']] ?? null));
             if ($field['required'] && $value === '') {
-                throw new \InvalidArgumentException("Product field '{$field['name']}' cannot be empty.", 400);
+                throw new \InvalidArgumentException(
+                    "Product no: {$productIndex} field: '{$field['name']}' cannot be empty.",
+                    400
+                );
             }
             if ($value !== '') {
                 switch ($field['type']) {
@@ -721,21 +738,11 @@ class Validate
                             );
                         }
                         $value = (float) $value;
-                        if ($value < $field['min']) {
-                            throw new \InvalidArgumentException(
-                                "Product no. {$productIndex}: field '{$field['name']}' must be at least {$field['min']}.",
-                                400
-                            );
-                        }
+
                         if ($key === 'Weight') {
                             $field['max'] = $maxProductWeight ?? $field['max'];
                         }
-                        if ($value > $field['max']) {
-                            throw new \InvalidArgumentException(
-                                "Product no. {$productIndex}: field '{$field['name']}' must be at most {$field['max']}.",
-                                400
-                            );
-                        }
+    
                         break;
                     default:
                         throw new \RuntimeException(
@@ -841,7 +848,8 @@ class Validate
                             400
                         );
                     }
-                    $value = $lowerValue;
+                    $this->weightUnit = $lowerValue;
+                    $value = self::DEFAULT_WEIGHT_UNIT; //always convert to kg internally
                 }
                 if ($key === 'DimUnit') {
                     $lowerValue = strtolower($value);
@@ -851,7 +859,8 @@ class Validate
                             400
                         );
                     }
-                    $value = $lowerValue;
+                    $this->dimUnit = $lowerValue;
+                    $value = self::DEFAULT_DIM_UNIT; //always convert to cm internally
                 }
                 if ($key === 'Currency') {
                     $upperValue = strtoupper($value);
@@ -944,9 +953,10 @@ class Validate
                 $result[$key] = $value;
             }
         }
-        if (!isset($result['ShippingValue']) && !isset($result['Value'])) {
+
+        if (!isset($result['ShipmentValue']) && !isset($result['Value'])) {
             throw new \InvalidArgumentException(
-                "At least one of the shipment fields 'shipping_value' or 'value' must be provided.",
+                "At least one of the shipment fields 'shipment_value' or 'value' must be provided.",
                 400
             );
         }
