@@ -38,6 +38,29 @@ $order = [
 
     'shipper_reference' => '123',
     'order_reference' => 'no: 222',
+    'order_date' => '2024-06-01',
+    'display_id' => '',
+    'invoice_number' => 'FV/06/2024/01',
+    'weight' => "sx",
+    'weight_unit' => 'LB',
+    'length' => 30,
+    'width' => 20,
+    'height' => 20,
+    'dim_unit' => 'in',
+    // 'value' => 100.0,
+    'shipping_value' => 20.0,
+    'currency' => 'pln',
+    'customs_duty' => 'DDu',
+    'description' => 'Electronics items',
+    'declaration_type' => 'gift',
+    // 'dangerous_goods' => 'no',
+    'export_carriername' => 'DHL',
+    'export_awb' => '1234567890',
+    'ni_vat' => 'xi123456789',
+    'eu_eori' => 'PL123456789012',
+    'ioss' => 'IMRO123456789055',
+    'label_format' => 'ZPL',
+
 
     'products' => [
         [
@@ -77,6 +100,11 @@ try {
     print_r($response);
 
 
+    //sprawdzenie wagi produktów w zależności od jednostki
+    //sprawdzenie podanych wymiarów w zależności od jednostki
+    //sprawdzenie wymiarów i gabarytu w zależności od usługi
+
+
     // 3. Get shipping label and force a download dialog
 
 
@@ -84,12 +112,9 @@ try {
 
 } catch(\ArgumentCountError $e) {
     echo 'Invalid Argument Count: ' . PHP_EOL;
-    exit();
 } catch (\TypeError $e) {
     echo 'Type Error: ' . PHP_EOL;
-    exit();
 } catch (Throwable $e) {
     echo 'General Error: ' . $e->getMessage();
-    exit();
 }
 

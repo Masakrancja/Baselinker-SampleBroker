@@ -9,6 +9,8 @@ use Baselinker\Samplebroker\Api;
 class Courier
 {
 
+    private const DEFAULT_WEIGHT_UNIT = 'kg';
+
     public function __construct(
         private Api $api, 
         private Validate $validate
@@ -32,6 +34,7 @@ class Courier
             // Get additional information about the service from API
             $serviceInfo = $this->api->getServiceInfo($apiKey, $service);
 
+            // Validate shipment details
             $shipment = $this->validate->shipment(
                 array_filter($order, fn($key) => in_array(strtolower($key), [
                     'shipper_reference', 'order_reference', 'order_date', 
@@ -40,30 +43,39 @@ class Courier
                     'shipping_value', 'currency', 'customs_duty', 'description', 
                     'declaration_type', 'dangerous_goods', 'export_carriername', 
                     'export_awb', 'ni_vat', 'eu_eori', 'ioss', 'label_format'
-                ]), ARRAY_FILTER_USE_KEY)
+                ]), ARRAY_FILTER_USE_KEY),
+                $serviceInfo
             );
 
 
             print_r($shipment);
             exit();
 
+            // Validate consignor address
             $consignor = $this->validate->consignorAddress(
                 array_filter($order, fn($key) => str_starts_with($key, 'sender_'), ARRAY_FILTER_USE_KEY),
                 $serviceInfo
             );
 
+            // Validate consignee address
             $consignee = $this->validate->consigneeAddress(
                 array_filter($order, fn($key) => str_starts_with($key, 'delivery_'), ARRAY_FILTER_USE_KEY),
                 $serviceInfo
             );
 
-            $products = $this->validate->products($order['products'] ?? [], $serviceInfo);
+            // Validate products data
+            $products = $this->validate->products(
+                $order['products'] ?? [], 
+                $shipment['weight_unit'] ?? self::DEFAULT_WEIGHT_UNIT,
+                $serviceInfo
+            );
 
 
 
             print_r($consignor);
             print_r($consignee);
             print_r($products);
+
 
 
 
