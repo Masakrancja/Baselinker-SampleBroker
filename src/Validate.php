@@ -250,9 +250,6 @@ class Validate
 
 
         $result = $this->validateShipment($fields, $shipment, $serviceInfo);
-
-        print_r($result);
-
         $dim = (int)isset($result['Length']) + (int)isset($result['Width']) + (int)isset($result['Height']);
 
         if ($dim === 1 || $dim === 2) {
@@ -483,8 +480,8 @@ class Validate
 
     public function products(
         array $products, 
-        array $serviceInfo, 
-        string $weightUnit
+        string $weightUnit,
+        array $serviceInfo,
     ): array
     {
         $result = [];
@@ -545,7 +542,7 @@ class Validate
             $result[] = $this->validateProduct($fields, $product, $serviceInfo, $productIndex);
             $amountOfProducts += (int) ($product['quantity']);
             $weightOfProducts += (float) ($product['weight']) * (int) ($product['quantity']);
-            $valueOfProducts += (float) ($product['value']) ?? 0.0 * (int) ($product['quantity']);
+            $valueOfProducts += ((float) ($product['value'] ?? 0.0)) * (int) ($product['quantity']);
             $productIndex++;
         }
 
@@ -672,7 +669,7 @@ class Validate
     ): array
     {
         $result = [];
-        $serviceInfo = $serviceInfo['response']['ServiceInfo'];
+        // $serviceInfo is already transformed in products() method, no need to access ['response']['ServiceInfo']
         $serviceLimits = $serviceInfo['fieldLimits'] ?? [];
         $availableCountries = $serviceLimits['SupportedCountries'] ?? [];
         $service = $serviceInfo['service'] ?? '';
@@ -829,7 +826,7 @@ class Validate
                 }
                 if ($key === 'DisplayId') {
                     $valueLength = mb_strlen($value, 'UTF-8');
-                    if ($valueLength > $serviceLimits[$key] ?? 15) {
+                    if ($valueLength > ($serviceLimits[$key] ?? 15)) {
                         throw new \InvalidArgumentException(
                             "Shipment field '{$field['name']}' exceeds maximum length of " . ($serviceLimits[$key] ?? 15) . " characters.",
                             400

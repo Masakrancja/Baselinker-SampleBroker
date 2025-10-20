@@ -48,9 +48,6 @@ class Courier
             );
 
 
-            print_r($shipment);
-            exit();
-
             // Validate consignor address
             $consignor = $this->validate->consignorAddress(
                 array_filter($order, fn($key) => str_starts_with($key, 'sender_'), ARRAY_FILTER_USE_KEY),
@@ -70,35 +67,9 @@ class Courier
                 $serviceInfo
             );
 
-
-
-            print_r($consignor);
-            print_r($consignee);
-            print_r($products);
-
-
-
-
-
-            exit();
-
-
-
-            // $labelFormat = $this->validate->labelFormat($params['label_format'] ?? null);
-            // 
+            return [];
             
 
-
-            // $consignee = $this->validate->validateConsigneeAddress(
-            //     array_filter($order, fn($key) => str_starts_with($key, 'delivery_'), ARRAY_FILTER_USE_KEY)
-            // );
-
-            // $products = $this->validate->validateProducts($order['products'] ?? []);
-
-            // print_r($consignor);
-            // print_r($consignee);
-            // print_r($products);
-            // exit();
 
         } catch (\InvalidArgumentException | \RuntimeException $e) {
             return [
