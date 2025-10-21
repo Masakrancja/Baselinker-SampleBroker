@@ -6,10 +6,8 @@ namespace Baselinker\Samplebroker;
 
 class Api
 {
-    public function __construct(private string $baseUrl)
-    {
-        $this->baseUrl = rtrim($baseUrl, '/');
-    }
+
+    private const BASE_URL = 'https://developers.baselinker.com/recruitment/api';
 
     public function getServices(string $apiKey): array
     {
@@ -45,15 +43,13 @@ class Api
             'Shipment' => $body,
         ]);
         $response = $this->runCommand($body);
-
-        return $response['response']['Shipment'];
+        return $response;
     }
 
     public function getShipmentLabel(
-        string $apiKey, 
+        string $apiKey,
         array $body
-    ): array
-    {
+    ): array {
         $command = 'GetShipmentLabel';
         $body = json_encode([
             'Apikey' => $apiKey,
@@ -96,15 +92,15 @@ class Api
 
     private function getCurl(
         ?string $body = null,
-        string $type = 'POST',
+        string $type = 'POST'
     ): \CurlHandle {
         $ch = curl_init();
-        curl_setopt_array($ch, array(
-            CURLOPT_URL => $this->baseUrl,
+        curl_setopt_array($ch, [
+            CURLOPT_URL => self::BASE_URL,
             CURLOPT_HTTPHEADER => $this->getHeaders(),
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => $type,
-        ));
+        ]);
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
