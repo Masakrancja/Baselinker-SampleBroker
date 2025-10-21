@@ -27,12 +27,27 @@ class Courier
 
             // Get available services from API
             $services = $this->api->getServices($apiKey);
+            if ($services['http_code'] !== 200) {
+                throw new \InvalidArgumentException(
+                    $services['response']['Error'],
+                    $services['response']['ErrorLevel'],
+                );
+            }
 
             // Validate selected service
-            $service = $this->validateShipment->service($params['service'] ?? '', $services);
+            //$service = $this->validateShipment->service($params['service'] ?? '', $services);
+
+            $service = strtoupper($params['service'] ?? '');
 
             // Get additional information about the service from API
             $serviceInfo = $this->api->getServiceInfo($apiKey, $service);
+
+            if ($serviceInfo['http_code'] !== 200) {
+                throw new \InvalidArgumentException(
+                    $serviceInfo['response']['Error'],
+                    $serviceInfo['response']['ErrorLevel'],
+                );
+            }
 
             // Validate shipment details
             $shipment = $this->validateShipment->shipment(
