@@ -9,6 +9,13 @@ use Baselinker\Samplebroker\Validate;
 class ValidateShipment extends Validate
 {
 
+    /**
+     * Validates API key format and presence.
+     *
+     * @param string $apiKey API key to validate
+     * @return string Validated API key
+     * @throws \InvalidArgumentException When API key is empty or invalid
+     */
     public function apiKey(string $apiKey): string
     {
         if (empty($apiKey) || !is_string($apiKey)) {
@@ -18,6 +25,14 @@ class ValidateShipment extends Validate
         return $apiKey;
     }
 
+    /**
+     * Validates service name against available services from API.
+     *
+     * @param string $service Service name to validate
+     * @param array $services Available services response from API
+     * @return string Validated service name
+     * @throws \InvalidArgumentException When service is not in allowed services list
+     */
     public function service(string $service, array $services): string
     {
         $allowedServices = $services['response']['Services']['AllowedServices'] ?? [];
@@ -30,6 +45,18 @@ class ValidateShipment extends Validate
         return $service;
     }
 
+    /**
+     * Validates complete shipment data with dimensions, weight, and customs information.
+     * 
+     * Validates all shipment fields, handles unit conversions (weight/dimensions), checks
+     * dimension constraints, and applies service-specific limits. Ensures at least one
+     * value field is provided.
+     *
+     * @param array $shipment Shipment data to validate
+     * @param array $serviceInfo Service configuration from API containing limits
+     * @return array Validated shipment data with converted units
+     * @throws \InvalidArgumentException When validation fails or constraints violated
+     */
     public function shipment(array $shipment, array $serviceInfo): array
     {
         $result = [];
@@ -293,6 +320,20 @@ class ValidateShipment extends Validate
         return $result;
     }
 
+    /**
+     * Core field-by-field validation logic for shipment data.
+     * 
+     * Validates individual fields including data types, length limits, date formats,
+     * special field validations (currencies, customs, VAT numbers), and country codes.
+     * Applies service-specific field limits when available.
+     *
+     * @param array $fields Field configuration array defining validation rules
+     * @param array $shipment Raw shipment data to validate
+     * @param array $serviceInfo Service configuration containing field limits
+     * @return array Validated and normalized shipment data
+     * @throws \InvalidArgumentException When field validation fails
+     * @throws \RuntimeException When unsupported field type encountered
+     */
     private function validateShipment(
         array $fields, array $shipment, array $serviceInfo
     ): array {

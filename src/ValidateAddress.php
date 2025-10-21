@@ -8,6 +8,20 @@ use Baselinker\Samplebroker\Validate;
 
 class ValidateAddress extends Validate
 {
+    /**
+     * Validates sender/consignor address data.
+     * 
+     * Validates all sender address fields including required fields (address, city, postal code, country)
+     * and optional fields (name, company, phone, email). Applies service-specific length limits and
+     * format validation.
+     *
+     * @param array $consignor Sender address data with 'sender_' prefixed keys
+     * @param array $serviceInfo Service configuration from API containing field limits
+     * 
+     * @return array Validated address data with standardized keys
+     * 
+     * @throws \InvalidArgumentException When required fields are missing or validation fails
+     */
     public function consignorAddress(array $consignor, array $serviceInfo): array
     {
         $fields = [
@@ -82,6 +96,20 @@ class ValidateAddress extends Validate
         return $this->validateAddress($fields, $consignor, $serviceInfo);
     }
 
+    /**
+     * Validates recipient/consignee address data.
+     * 
+     * Validates all delivery address fields including required fields (fullname, address, city, 
+     * postal code, country) and optional fields (company, phone, email). Applies service-specific 
+     * length limits and format validation.
+     *
+     * @param array $consignee Delivery address data with 'delivery_' prefixed keys
+     * @param array $serviceInfo Service configuration from API containing field limits
+     * 
+     * @return array Validated address data with standardized keys
+     * 
+     * @throws \InvalidArgumentException When required fields are missing or validation fails
+     */
     public function consigneeAddress(array $consignee, array $serviceInfo): array
     {
         $fields = [
@@ -156,6 +184,20 @@ class ValidateAddress extends Validate
         return $this->validateAddress($fields, $consignee, $serviceInfo);
     }
 
+    /**
+     * Core address validation logic shared by consignor and consignee validation.
+     * 
+     * Performs field-by-field validation including length limits, format validation for emails
+     * and phone numbers, country code validation, and service compatibility checks.
+     *
+     * @param array $fields Field configuration array defining validation rules
+     * @param array $address Raw address data to validate
+     * @param array $serviceInfo Service configuration from API containing field limits
+     * 
+     * @return array Validated and normalized address data
+     * 
+     * @throws \InvalidArgumentException When validation fails for any field
+     */
     private function validateAddress(
         array $fields,
         array $address,

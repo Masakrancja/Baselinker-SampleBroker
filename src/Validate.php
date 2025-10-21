@@ -74,6 +74,19 @@ abstract class Validate
 
     protected string $weightUnit = self::DEFAULT_WEIGHT_UNIT;
 
+    /**
+     * Validates country code against service-supported countries list.
+     * 
+     * Converts country code to uppercase and checks if it's supported by the
+     * current service. Used for address validation and customs fields.
+     *
+     * @param string $countryCode 2-letter country code to validate
+     * @param array $availableCountries Array of supported country codes from service
+     * @param string $service Service name for error messaging
+     * @param string $fieldName Field name for error messaging
+     * @return string Validated uppercase country code
+     * @throws \InvalidArgumentException When country code is not supported by service
+     */
     protected function validateCountryCode(
         string $countryCode,
         array $availableCountries,

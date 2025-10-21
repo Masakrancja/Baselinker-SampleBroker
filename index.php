@@ -94,10 +94,10 @@ $params = [
 
 try {
 
-    // 1. Create courier object
+    // Create courier object
     $courier = new Courier();
 
-    // 2. Create shipment
+    // Create shipment
     $response = $courier->newPackage($order, $params);
 
     if ($response['status'] === 'ERROR') {

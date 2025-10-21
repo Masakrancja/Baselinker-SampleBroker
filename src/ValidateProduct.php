@@ -8,6 +8,22 @@ use Baselinker\Samplebroker\Validate;
 
 class ValidateProduct extends Validate
 {
+    /**
+     * Validates array of products for shipment with quantity, weight and value limits.
+     * 
+     * Validates each product individually and checks total limits (quantity, weight, value).
+     * Determines if HS codes are required based on international shipping. Handles weight
+     * unit conversion and service-specific constraints.
+     *
+     * @param array $products Array of product data to validate
+     * @param string $consignorCountry 2-letter sender country code
+     * @param string $consigneeCountry 2-letter recipient country code  
+     * @param array $serviceInfo Service configuration from API containing limits
+     * 
+     * @return array Array of validated product data with normalized values
+     * 
+     * @throws \InvalidArgumentException When validation fails or limits exceeded
+     */
     public function products(
         array $products,
         string $consignorCountry,
@@ -122,6 +138,22 @@ class ValidateProduct extends Validate
         return $result;
     }
 
+    /**
+     * Validates individual product data against field rules and service limits.
+     * 
+     * Performs field-by-field validation including data types, string lengths, numeric ranges,
+     * and country code validation. Applies service-specific limits when available.
+     *
+     * @param array $fields Field configuration array defining validation rules
+     * @param array $product Raw product data to validate
+     * @param array $serviceInfo Service configuration containing field limits
+     * @param int $productIndex Product position in array for error messages
+     * 
+     * @return array Validated and normalized product data
+     * 
+     * @throws \InvalidArgumentException When validation fails for any field
+     * @throws \RuntimeException When unsupported field type encountered
+     */
     private function validateProduct(
         array $fields, 
         array $product, 
